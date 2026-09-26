@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quản Lý Phòng Học</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Supabase JS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">🏫</div>
+      <div class="sidebar-title">Quản Lý Phòng Học</div>
+      <button class="sidebar-close" id="btn-sidebar-close" title="Đóng menu">✕</button>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-page="schedule" onclick="App.navigate('schedule')">
+        <span class="nav-icon">📅</span> Thời Khóa Biểu
+      </button>
+      <button class="nav-item" data-page="rooms" onclick="App.navigate('rooms')">
+        <span class="nav-icon">🚪</span> Quản Lý Phòng
+      </button>
+      <button class="nav-item" data-page="teachers" onclick="App.navigate('teachers')">
+        <span class="nav-icon">👨‍🏫</span> Giáo Viên
+      </button>
+      <button class="nav-item" data-page="timeslots" onclick="App.navigate('timeslots')">
+        <span class="nav-icon">🕐</span> Giờ Học
+      </button>
+      <button class="nav-item" data-page="assignments" onclick="App.navigate('assignments')">
+        <span class="nav-icon">✏️</span> Phân Công Lịch
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="config-status" id="config-status">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-text">Chưa kết nối</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== OVERLAY ===== -->
+  <div class="overlay hidden" id="overlay" onclick="App.closeSidebar()"></div>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <div class="main-wrap" id="main-wrap">
+
+    <!-- Top bar -->
+    <header class="topbar">
+      <button class="btn-menu" id="btn-menu" onclick="App.openSidebar()">☰</button>
+      <h1 class="topbar-title" id="page-title">Thời Khóa Biểu</h1>
+      <div class="topbar-actions" id="topbar-actions"></div>
+    </header>
+
+    <!-- Page content -->
+    <main class="content" id="content">
+      <!-- Rendered dynamically -->
+    </main>
+  </div>
+
+  <!-- ===== MODAL ===== -->
+  <div class="modal-backdrop hidden" id="modal-backdrop">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modal-title">Modal</h3>
+        <button class="modal-close" onclick="App.closeModal()">✕</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- ===== TOAST ===== -->
+  <div class="toast hidden" id="toast"></div>
+
+  <!-- ===== CONFIG MODAL (Supabase) ===== -->
+  <div class="modal-backdrop" id="config-backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">⚙️ Kết nối Supabase</h3>
+      </div>
+      <div class="modal-body">
+        <p style="color:#64748b;font-size:0.9rem;margin-bottom:1.2rem;">
+          Nhập thông tin Supabase project của bạn. Xem hướng dẫn trong file <code>README.md</code>.
+        </p>
+        <div class="form-group">
+          <label class="form-label">Supabase URL</label>
+          <input type="text" id="cfg-url" class="input" placeholder="https://xxxxxxxxxxxx.supabase.co" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Supabase Anon Key</label>
+          <input type="text" id="cfg-key" class="input" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
+        </div>
+        <div class="form-actions" style="justify-content:flex-end;">
+          <button class="btn btn-primary btn-lg" onclick="App.saveConfig()">Kết nối &amp; Lưu</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="supabase-client.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
