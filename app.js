@@ -31,10 +31,12 @@ const App = (() => {
         setStatusConnected();
         document.getElementById('config-backdrop').classList.add('hidden');
         loadAllData().then(() => navigate('schedule'));
-      } catch {
+      } catch (err) {
+        console.error('Lỗi khởi tạo Supabase:', err);
         showConfigModal();
       }
     } else {
+      // Chưa có config ở đâu cả → hiện modal nhập tay
       showConfigModal();
     }
   }
@@ -147,6 +149,7 @@ const App = (() => {
   function renderSchedule(content, actions) {
     actions.innerHTML = `
       <button class="btn btn-secondary btn-sm" onclick="App.refreshAll()">🔄 Làm mới</button>
+      <button class="btn btn-copy-day btn-sm" onclick="App.openCopyDayModal()">📋 Sao chép ngày</button>
       <button class="btn btn-primary btn-sm" onclick="App.navigate('assignments')">+ Thêm lịch</button>
     `;
 
@@ -163,13 +166,18 @@ const App = (() => {
     // Build lookup maps
     const scheduleMap = buildScheduleMap();
 
-    // Render bảng TKB
-    const thDays = DAYS.map(d => `<th>${d.label}</th>`).join('');
+    // Header các thứ — thêm nút copy nhỏ
+    const thDays = DAYS.map(d => `
+      <th>
+        <div class="tkb-th-inner">
+          <span>${d.label}</span>
+          <button class="btn-copy-col" onclick="App.openCopyDayModal(${d.key})" title="Sao chép ${d.label} sang ngày khác">⧉</button>
+        </div>
+      </th>`).join('');
 
     const rows = state.rooms.map(room => {
       const cells = DAYS.map(d => {
         const slots = (scheduleMap[room.id] && scheduleMap[room.id][d.key]) || [];
-        // Sắp xếp theo start_time
         slots.sort((a, b) => (a.timeslots.start_time > b.timeslots.start_time ? 1 : -1));
         const slotsHtml = slots.length
           ? slots.map(s => renderClassSlot(s)).join('')
@@ -263,8 +271,220 @@ const App = (() => {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // PAGE: PHÒNG HỌC
+  // TÍNH NĂNG: SAO CHÉP LỊCH THEO NGÀY
   // ═══════════════════════════════════════════════════════════════════════
+  /**
+   * Mở modal sao chép ngày.
+   * @param {number|null} preFromDay - Nếu bấm nút ⧉ trên cột thì pre-fill ngày nguồn
+   */
+  function openCopyDayModal(preFromDay = null) {
+    const scheduleMap = buildScheduleMap();
+
+    // Tạo option chọn phòng
+    const roomOpts = `
+      <option value="all">Tất cả các phòng</option>
+      ${state.rooms.map(r => `<option value="${r.id}">${escHtml(r.name)}</option>`).join('')}
+    `;
+
+    // Tạo option chọn ngày (dùng chung cho nguồn & đích)
+    const dayOpts = (selected) => DAYS.map(d =>
+      `<option value="${d.key}" ${d.key === selected ? 'selected' : ''}>${d.label}</option>`
+    ).join('');
+
+    const fromDay = preFromDay || 2;
+    // Đích mặc định: ngày kế tiếp khác ngày nguồn
+    const toDay = DAYS.find(d => d.key !== fromDay)?.key || 3;
+
+    openModal('📋 Sao chép lịch học theo ngày', `
+      <p class="copy-day-desc">
+        Sao chép toàn bộ lịch học từ một ngày sang ngày khác. 
+        Các lịch đã tồn tại ở ngày đích (cùng phòng + giờ) sẽ được <strong>bỏ qua</strong>.
+      </p>
+
+      <div class="form-group">
+        <label class="form-label">Phạm vi áp dụng</label>
+        <select id="cp-room" class="input" onchange="App.updateCopyPreview()">${roomOpts}</select>
+      </div>
+
+      <div class="copy-day-arrow-row">
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Ngày nguồn (sao chép từ)</label>
+          <select id="cp-from" class="input" onchange="App.updateCopyPreview()">
+            ${dayOpts(fromDay)}
+          </select>
+        </div>
+        <div class="copy-arrow">→</div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Ngày đích (sao chép sang)</label>
+          <select id="cp-to" class="input" onchange="App.updateCopyPreview()">
+            ${dayOpts(toDay)}
+          </select>
+        </div>
+      </div>
+
+      <!-- Preview -->
+      <div id="copy-preview-box" class="copy-preview-box">
+        <div class="copy-preview-loading">Đang tính toán...</div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-secondary" onclick="App.closeModal()">Hủy</button>
+        <button class="btn btn-primary" id="btn-do-copy" onclick="App.executeCopyDay()">
+          📋 Thực hiện sao chép
+        </button>
+      </div>
+    `);
+
+    // Render preview ngay sau khi modal mở
+    setTimeout(() => updateCopyPreview(), 50);
+  }
+
+  /**
+   * Cập nhật preview — hiển thị những lịch sẽ được copy / bị skip
+   */
+  function updateCopyPreview() {
+    const roomVal = document.getElementById('cp-room')?.value;
+    const fromDay = parseInt(document.getElementById('cp-from')?.value);
+    const toDay   = parseInt(document.getElementById('cp-to')?.value);
+    const box     = document.getElementById('copy-preview-box');
+    const btnCopy = document.getElementById('btn-do-copy');
+    if (!box) return;
+
+    if (fromDay === toDay) {
+      box.innerHTML = `<div class="copy-preview-warn">⚠️ Ngày nguồn và ngày đích không được giống nhau!</div>`;
+      if (btnCopy) btnCopy.disabled = true;
+      return;
+    }
+
+    // Lấy danh sách phòng cần xét
+    const rooms = roomVal === 'all'
+      ? state.rooms
+      : state.rooms.filter(r => r.id === parseInt(roomVal));
+
+    const fromDayLabel = DAYS.find(d => d.key === fromDay)?.label || '';
+    const toDayLabel   = DAYS.find(d => d.key === toDay)?.label   || '';
+
+    const toCopy = [];   // sẽ copy
+    const toSkip = [];   // đã có → skip
+
+    rooms.forEach(room => {
+      const srcSlots = state.schedules.filter(
+        s => s.rooms.id === room.id && s.day_of_week === fromDay
+      );
+      srcSlots.forEach(s => {
+        const dup = state.schedules.find(
+          x => x.rooms.id === room.id &&
+               x.day_of_week === toDay &&
+               x.timeslots.id === s.timeslots.id
+        );
+        if (dup) toSkip.push({ room: room.name, s });
+        else     toCopy.push({ room: room.name, s });
+      });
+    });
+
+    if (toCopy.length === 0 && toSkip.length === 0) {
+      box.innerHTML = `
+        <div class="copy-preview-empty">
+          📭 Không có lịch nào ở <strong>${fromDayLabel}</strong> để sao chép.
+        </div>`;
+      if (btnCopy) btnCopy.disabled = true;
+      return;
+    }
+
+    if (btnCopy) btnCopy.disabled = toCopy.length === 0;
+
+    const copyRows = toCopy.map(({ room, s }) => `
+      <div class="cp-row cp-will-copy">
+        <span class="cp-room">${escHtml(room)}</span>
+        <span class="cp-teacher" style="color:${s.teachers.color}">${escHtml(s.teachers.name)}</span>
+        <span class="cp-time">${s.timeslots.start_time.slice(0,5)}–${s.timeslots.end_time.slice(0,5)}</span>
+        <span class="cp-badge cp-badge-copy">✓ Sẽ copy</span>
+      </div>`).join('');
+
+    const skipRows = toSkip.map(({ room, s }) => `
+      <div class="cp-row cp-will-skip">
+        <span class="cp-room">${escHtml(room)}</span>
+        <span class="cp-teacher">${escHtml(s.teachers.name)}</span>
+        <span class="cp-time">${s.timeslots.start_time.slice(0,5)}–${s.timeslots.end_time.slice(0,5)}</span>
+        <span class="cp-badge cp-badge-skip">↷ Đã có</span>
+      </div>`).join('');
+
+    box.innerHTML = `
+      <div class="copy-preview-header">
+        Sao chép <strong>${fromDayLabel}</strong> → <strong>${toDayLabel}</strong>
+        &nbsp;·&nbsp; <span class="cp-count-copy">${toCopy.length} lịch sẽ thêm</span>
+        ${toSkip.length > 0 ? `&nbsp;·&nbsp; <span class="cp-count-skip">${toSkip.length} bỏ qua (đã có)</span>` : ''}
+      </div>
+      <div class="cp-rows">
+        ${copyRows}
+        ${skipRows}
+      </div>`;
+  }
+
+  /**
+   * Thực hiện sao chép — insert các bản ghi mới vào Supabase
+   */
+  async function executeCopyDay() {
+    const roomVal = document.getElementById('cp-room')?.value;
+    const fromDay = parseInt(document.getElementById('cp-from')?.value);
+    const toDay   = parseInt(document.getElementById('cp-to')?.value);
+    if (!fromDay || !toDay || fromDay === toDay) return;
+
+    const rooms = roomVal === 'all'
+      ? state.rooms
+      : state.rooms.filter(r => r.id === parseInt(roomVal));
+
+    // Tìm các lịch cần copy (chưa tồn tại ở ngày đích)
+    const toInsert = [];
+    rooms.forEach(room => {
+      const srcSlots = state.schedules.filter(
+        s => s.rooms.id === room.id && s.day_of_week === fromDay
+      );
+      srcSlots.forEach(s => {
+        const dup = state.schedules.find(
+          x => x.rooms.id === room.id &&
+               x.day_of_week === toDay &&
+               x.timeslots.id === s.timeslots.id
+        );
+        if (!dup) toInsert.push({
+          room_id:     room.id,
+          teacher_id:  s.teachers.id,
+          timeslot_id: s.timeslots.id,
+          day_of_week: toDay,
+          note:        s.note || '',
+        });
+      });
+    });
+
+    if (toInsert.length === 0) {
+      showToast('Không có lịch nào cần sao chép!', 'warning');
+      return;
+    }
+
+    // Disable nút tránh double-click
+    const btn = document.getElementById('btn-do-copy');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang xử lý...'; }
+
+    try {
+      // Supabase hỗ trợ insert nhiều bản ghi cùng lúc
+      const { error } = await SupabaseClient.getClient()
+        .from('schedules')
+        .insert(toInsert);
+      if (error) throw error;
+
+      // Reload schedules để có dữ liệu join đầy đủ
+      const full = await SupabaseClient.getSchedules();
+      state.schedules = full;
+
+      closeModal();
+      renderPage('schedule');
+      const toDayLabel = DAYS.find(d => d.key === toDay)?.label || '';
+      showToast(`Đã sao chép ${toInsert.length} lịch sang ${toDayLabel}! ✅`, 'success');
+    } catch (err) {
+      showToast('Lỗi sao chép: ' + err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = '📋 Thực hiện sao chép'; }
+    }
+  }
   function renderRoomsPage(content, actions) {
     actions.innerHTML = `
       <button class="btn btn-primary btn-sm" onclick="App.openAddRoom()">+ Thêm phòng</button>`;
@@ -864,5 +1084,7 @@ const App = (() => {
     // Schedule
     openAddSlot, deleteSlot,
     openAddAssignment, submitAddAssignment,
+    // Sao chép ngày
+    openCopyDayModal, updateCopyPreview, executeCopyDay,
   };
 })();

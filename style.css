@@ -555,6 +555,112 @@ body {
 .modal-close:hover { background: var(--bg); color: var(--text); }
 .modal-body { padding: 1.2rem; }
 
+/* ===== NÚT COPY NGÀY ===== */
+.btn-copy-day {
+  background: #0891b2;
+  color: white;
+  border: none;
+}
+.btn-copy-day:hover { background: #0e7490; }
+
+/* Nút ⧉ nhỏ trên header cột thứ */
+.tkb-th-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.btn-copy-col {
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: rgba(255,255,255,0.8);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 1px 4px;
+  border-radius: 3px;
+  line-height: 1;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.btn-copy-col:hover {
+  background: rgba(255,255,255,0.3);
+  color: white;
+}
+
+/* ===== MODAL SAO CHÉP NGÀY ===== */
+.copy-day-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 1.1rem;
+  line-height: 1.6;
+}
+.copy-day-arrow-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.copy-arrow {
+  font-size: 1.4rem;
+  color: var(--primary);
+  font-weight: 700;
+  padding-bottom: 0.9rem;
+  flex-shrink: 0;
+}
+
+/* Preview box */
+.copy-preview-box {
+  background: #f8fafc;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+  max-height: 260px;
+  overflow-y: auto;
+  margin-top: 0.75rem;
+  font-size: 0.83rem;
+}
+.copy-preview-loading { color: var(--text-muted); text-align: center; padding: 0.5rem; }
+.copy-preview-warn    { color: var(--danger); font-weight: 600; text-align: center; padding: 0.5rem; }
+.copy-preview-empty   { color: var(--text-muted); text-align: center; padding: 0.5rem; }
+
+.copy-preview-header {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.cp-count-copy { color: var(--success); font-weight: 700; }
+.cp-count-skip { color: var(--warning); font-weight: 700; }
+
+.cp-rows { display: flex; flex-direction: column; gap: 4px; }
+
+.cp-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 5px;
+  font-size: 0.8rem;
+}
+.cp-will-copy { background: #f0fdf4; border: 1px solid #bbf7d0; }
+.cp-will-skip { background: #fafafa; border: 1px solid #e2e8f0; opacity: 0.65; }
+
+.cp-room    { font-weight: 700; color: var(--text); min-width: 80px; }
+.cp-teacher { flex: 1; font-weight: 600; }
+.cp-time    { color: var(--text-muted); white-space: nowrap; font-size: 0.76rem; }
+
+.cp-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.cp-badge-copy { background: #dcfce7; color: #15803d; }
+.cp-badge-skip { background: #f1f5f9; color: var(--text-muted); }
+
 /* ===== TOAST ===== */
 .toast {
   position: fixed;

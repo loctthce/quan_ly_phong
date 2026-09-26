@@ -21,17 +21,29 @@ const SupabaseClient = (() => {
   function getClient() { return _client; }
   function isReady()   { return !!_client; }
 
-  // ── Lưu config vào localStorage ─────────────────────────────────────────
-  function saveConfig(url, key) {
-    localStorage.setItem('sb_url', url);
-    localStorage.setItem('sb_key', key);
-  }
-
+  // ── Config ──────────────────────────────────────────────────────────────
+  /**
+   * Thứ tự ưu tiên khi lấy config:
+   *  1. SUPABASE_CONFIG trong config.js (biến mặc định)
+   *  2. localStorage (do người dùng nhập thủ công trước đó)
+   */
   function loadConfig() {
+    // Ưu tiên config.js nếu đã điền đúng
+    if (typeof SUPABASE_CONFIG !== 'undefined' &&
+        SUPABASE_CONFIG.url && !SUPABASE_CONFIG.url.includes('your-project-id') &&
+        SUPABASE_CONFIG.key && !SUPABASE_CONFIG.key.includes('your-anon-public-key')) {
+      return { url: SUPABASE_CONFIG.url, key: SUPABASE_CONFIG.key };
+    }
+    // Fallback: lấy từ localStorage (nhập thủ công qua modal)
     return {
       url: localStorage.getItem('sb_url') || '',
       key: localStorage.getItem('sb_key') || '',
     };
+  }
+
+  function saveConfig(url, key) {
+    localStorage.setItem('sb_url', url);
+    localStorage.setItem('sb_key', key);
   }
 
   function clearConfig() {

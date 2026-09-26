@@ -106,11 +106,20 @@ CREATE POLICY "allow_all" ON schedules  FOR ALL USING (true) WITH CHECK (true);
 
 ### 5. Kết nối ứng dụng với Supabase
 
-Khi mở ứng dụng lần đầu, một form **Kết nối Supabase** sẽ hiện ra:
-- Nhập **Supabase URL** và **Anon Key** vừa copy ở bước 1
-- Nhấn **Kết nối & Lưu**
+Mở file **`config.js`** và điền thông tin Supabase project:
 
-Thông tin được lưu vào `localStorage` của trình duyệt (không gửi đi đâu).
+```js
+const SUPABASE_CONFIG = {
+  url: 'https://your-project-id.supabase.co',  // ← Thay bằng Project URL
+  key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',  // ← Thay bằng anon public key
+};
+```
+
+Lấy thông tin tại: **Supabase Dashboard → Project Settings → API**
+
+Sau khi điền xong, app sẽ tự động kết nối mà **không cần nhập lại** mỗi lần mở.
+
+> **Dự phòng:** Nếu `config.js` chưa điền, app sẽ hiện form nhập thủ công và lưu vào `localStorage`.
 
 ---
 
