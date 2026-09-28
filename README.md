@@ -38,11 +38,15 @@ CREATE TABLE rooms (
 CREATE TABLE teachers (
   id         BIGSERIAL PRIMARY KEY,
   name       TEXT NOT NULL,
+  subject    TEXT DEFAULT '',
   phone      TEXT DEFAULT '',
   email      TEXT DEFAULT '',
   color      TEXT DEFAULT '#4f46e5',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ⚠️ Nếu bảng teachers đã tồn tại, chạy lệnh này để thêm cột subject:
+-- ALTER TABLE teachers ADD COLUMN IF NOT EXISTS subject TEXT DEFAULT '';
 
 -- =============================================
 -- BẢNG: timeslots (Ca học / Giờ học)

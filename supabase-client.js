@@ -4,7 +4,7 @@
  *
  * Cấu trúc bảng (xem README.md để biết SQL tạo bảng):
  *  - rooms        : id, name, description, sort_order, created_at
- *  - teachers     : id, name, phone, email, color, created_at
+ *  - teachers     : id, name, subject, phone, email, color, created_at
  *  - timeslots    : id, name, start_time, end_time, sort_order, created_at
  *  - schedules    : id, room_id, teacher_id, timeslot_id, day_of_week (2-8), note, created_at
  */
@@ -113,8 +113,8 @@ const SupabaseClient = (() => {
     return fetchAll('teachers', 'name');
   }
 
-  async function addTeacher(name, phone = '', email = '', color = '#4f46e5') {
-    return insert('teachers', { name, phone, email, color });
+  async function addTeacher(name, subject = '', phone = '', email = '', color = '#4f46e5') {
+    return insert('teachers', { name, subject, phone, email, color });
   }
 
   async function updateTeacher(id, payload) {
@@ -152,7 +152,7 @@ const SupabaseClient = (() => {
       .select(`
         id, day_of_week, note,
         rooms   ( id, name, sort_order ),
-        teachers( id, name, color ),
+        teachers( id, name, subject, color ),
         timeslots( id, name, start_time, end_time, sort_order )
       `)
       .order('day_of_week', { ascending: true });

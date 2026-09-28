@@ -107,11 +107,11 @@ const App = (() => {
     });
     // Render page
     const titles = {
-      schedule:    '📅 Thời Khóa Biểu',
-      rooms:       '🚪 Quản Lý Phòng',
-      teachers:    '👨‍🏫 Giáo Viên',
-      timeslots:   '🕐 Giờ Học',
-      assignments: '✏️ Phân Công Lịch',
+      schedule:    '📅 Thời khóa biểu',
+      rooms:       '🚪 Quản lý Phòng',
+      teachers:    '👨‍🏫 Giáo viên',
+      timeslots:   '🕐 Giờ học',
+      assignments: '✏️ Lịch phân công',
     };
     document.getElementById('page-title').textContent = titles[page] || page;
     renderPage(page);
@@ -158,7 +158,7 @@ const App = (() => {
         <div class="empty-state">
           <div class="empty-icon">🚪</div>
           <h3>Chưa có phòng học nào</h3>
-          <p>Vào <strong>Quản Lý Phòng</strong> để thêm phòng trước.</p>
+          <p>Vào <strong>Quản lý phòng</strong> để thêm phòng trước.</p>
         </div>`;
       return;
     }
@@ -206,7 +206,7 @@ const App = (() => {
         <table class="tkb-table">
           <thead>
             <tr>
-              <th>Phòng học</th>
+              <th>Phòng</th>
               ${thDays}
             </tr>
           </thead>
@@ -243,19 +243,20 @@ const App = (() => {
     return `
       <div class="class-slot ${slotClass}" style="border-left-color:${color};">
         <div class="slot-teacher" style="color:${color};">${escHtml(s.teachers.name)}</div>
+        ${s.teachers.subject ? `<div class="slot-subject">${escHtml(s.teachers.subject)}</div>` : ''}
         <div class="slot-time">${timeLabel}</div>
         ${s.note ? `<div class="slot-time" style="font-style:italic;">${escHtml(s.note)}</div>` : ''}
         <div class="slot-actions">
-          <button class="slot-btn del" onclick="App.deleteSlot(${s.id})" title="Xóa">✕</button>
+          <button class="slot-btn edit" onclick="App.openEditSlot(${s.id})" title="Sửa">✏</button>
+          <button class="slot-btn del"  onclick="App.deleteSlot(${s.id})"   title="Xóa">✕</button>
         </div>
       </div>`;
   }
 
-  // Mở modal thêm lịch nhanh từ TKB
+  // Mở modal thêm lịch nhanh từ TKB (pre-check ngày tương ứng)
   function openAddSlot(roomId, dayOfWeek) {
     const room = state.rooms.find(r => r.id === roomId);
-    const dayLabel = DAYS.find(d => d.key === dayOfWeek)?.label || '';
-    openModal(`➕ Thêm lịch — ${room?.name} / ${dayLabel}`, buildAssignForm(roomId, dayOfWeek));
+    openModal(`➕ Thêm lịch — ${room?.name || ''}`, buildAssignForm(roomId, [dayOfWeek]));
   }
 
   async function deleteSlot(id) {
@@ -623,13 +624,19 @@ const App = (() => {
       return;
     }
 
-    const rows = state.teachers.map(t => `
+    const rows = state.teachers.map((t, idx) => `
       <tr>
+        <td style="text-align:center;color:var(--text-muted);font-size:0.82rem;">${idx + 1}</td>
         <td>
           <div style="display:flex;align-items:center;gap:0.5rem;">
             <span class="color-dot" style="background:${t.color || '#4f46e5'};"></span>
             <strong>${escHtml(t.name)}</strong>
           </div>
+        </td>
+        <td>
+          ${t.subject
+            ? `<span class="badge badge-primary">${escHtml(t.subject)}</span>`
+            : `<span style="color:var(--text-muted);font-size:0.8rem;">—</span>`}
         </td>
         <td>${escHtml(t.phone || '—')}</td>
         <td>${escHtml(t.email || '—')}</td>
@@ -649,7 +656,7 @@ const App = (() => {
         <div class="data-table-wrap">
           <table class="data-table">
             <thead>
-              <tr><th>Tên giáo viên</th><th>Điện thoại</th><th>Email</th><th>Thao tác</th></tr>
+              <tr><th style="width:40px;text-align:center;">STT</th><th>Tên giáo viên</th><th>Môn dạy</th><th>Điện thoại</th><th>Email</th><th>Thao tác</th></tr>
             </thead>
             <tbody>${rows}</tbody>
           </table>
@@ -668,8 +675,12 @@ const App = (() => {
   function openAddTeacher() {
     const defColor = TEACHER_COLORS[0];
     openModal('➕ Thêm giáo viên', `
-      <div class="form-group"><label class="form-label">Tên giáo viên *</label>
-        <input id="f-teacher-name" class="input" placeholder="Nguyễn Văn A" /></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Tên giáo viên *</label>
+          <input id="f-teacher-name" class="input" placeholder="Nguyễn Văn A" /></div>
+        <div class="form-group"><label class="form-label">Môn dạy</label>
+          <input id="f-teacher-subject" class="input" placeholder="Toán, Văn, Anh..." /></div>
+      </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Số điện thoại</label>
           <input id="f-teacher-phone" class="input" placeholder="0912..." /></div>
@@ -689,13 +700,14 @@ const App = (() => {
   }
 
   async function submitAddTeacher() {
-    const name  = document.getElementById('f-teacher-name').value.trim();
-    const phone = document.getElementById('f-teacher-phone').value.trim();
-    const email = document.getElementById('f-teacher-email').value.trim();
-    const color = document.getElementById('f-teacher-color').value || TEACHER_COLORS[0];
+    const name    = document.getElementById('f-teacher-name').value.trim();
+    const subject = document.getElementById('f-teacher-subject').value.trim();
+    const phone   = document.getElementById('f-teacher-phone').value.trim();
+    const email   = document.getElementById('f-teacher-email').value.trim();
+    const color   = document.getElementById('f-teacher-color').value || TEACHER_COLORS[0];
     if (!name) { showToast('Vui lòng nhập tên giáo viên!', 'error'); return; }
     try {
-      const t = await SupabaseClient.addTeacher(name, phone, email, color);
+      const t = await SupabaseClient.addTeacher(name, subject, phone, email, color);
       state.teachers.push(t);
       state.teachers.sort((a, b) => a.name.localeCompare(b.name));
       closeModal();
@@ -708,8 +720,12 @@ const App = (() => {
     const t = state.teachers.find(t => t.id === id);
     if (!t) return;
     openModal('✏️ Sửa giáo viên', `
-      <div class="form-group"><label class="form-label">Tên giáo viên *</label>
-        <input id="f-teacher-name" class="input" value="${escHtml(t.name)}" /></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Tên giáo viên *</label>
+          <input id="f-teacher-name" class="input" value="${escHtml(t.name)}" /></div>
+        <div class="form-group"><label class="form-label">Môn dạy</label>
+          <input id="f-teacher-subject" class="input" value="${escHtml(t.subject||'')}" placeholder="Toán, Văn, Anh..." /></div>
+      </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Số điện thoại</label>
           <input id="f-teacher-phone" class="input" value="${escHtml(t.phone||'')}" /></div>
@@ -729,13 +745,14 @@ const App = (() => {
   }
 
   async function submitEditTeacher(id) {
-    const name  = document.getElementById('f-teacher-name').value.trim();
-    const phone = document.getElementById('f-teacher-phone').value.trim();
-    const email = document.getElementById('f-teacher-email').value.trim();
-    const color = document.getElementById('f-teacher-color').value;
+    const name    = document.getElementById('f-teacher-name').value.trim();
+    const subject = document.getElementById('f-teacher-subject').value.trim();
+    const phone   = document.getElementById('f-teacher-phone').value.trim();
+    const email   = document.getElementById('f-teacher-email').value.trim();
+    const color   = document.getElementById('f-teacher-color').value;
     if (!name) { showToast('Vui lòng nhập tên!', 'error'); return; }
     try {
-      const updated = await SupabaseClient.updateTeacher(id, { name, phone, email, color });
+      const updated = await SupabaseClient.updateTeacher(id, { name, subject, phone, email, color });
       const idx = state.teachers.findIndex(t => t.id === id);
       if (idx !== -1) state.teachers[idx] = updated;
       // Cập nhật schedules cache
@@ -926,7 +943,10 @@ const App = (() => {
           <td>${escHtml(s.timeslots.name)}</td>
           <td>${escHtml(s.note || '—')}</td>
           <td>
-            <button class="btn btn-ghost btn-icon" onclick="App.deleteSlot(${s.id})" style="color:var(--danger)" title="Xóa">🗑️</button>
+            <div class="actions">
+              <button class="btn btn-ghost btn-icon" onclick="App.openEditSlot(${s.id})" title="Sửa">✏️</button>
+              <button class="btn btn-ghost btn-icon" onclick="App.deleteSlot(${s.id})" style="color:var(--danger)" title="Xóa">🗑️</button>
+            </div>
           </td>
         </tr>`;
     }).join('');
@@ -939,7 +959,7 @@ const App = (() => {
         <div class="data-table-wrap">
           <table class="data-table">
             <thead>
-              <tr><th>Phòng</th><th>Thứ</th><th>Giáo viên</th><th>Giờ</th><th>Ca học</th><th>Ghi chú</th><th>Xóa</th></tr>
+              <tr><th>Phòng</th><th>Thứ</th><th>Giáo viên</th><th>Giờ</th><th>Ca học</th><th>Ghi chú</th><th>Thao tác</th></tr>
             </thead>
             <tbody>${rows}</tbody>
           </table>
@@ -947,38 +967,47 @@ const App = (() => {
       </div>`;
   }
 
-  function buildAssignForm(preRoomId = null, preDayKey = null) {
+  function buildAssignForm(preRoomId = null, preDayKeys = []) {
     const roomOpts = state.rooms.map(r =>
       `<option value="${r.id}" ${r.id === preRoomId ? 'selected' : ''}>${escHtml(r.name)}</option>`).join('');
     const teacherOpts = state.teachers.map(t =>
       `<option value="${t.id}">${escHtml(t.name)}</option>`).join('');
     const tsOpts = state.timeslots.map(ts =>
       `<option value="${ts.id}">${escHtml(ts.name)} (${ts.start_time.slice(0,5)}–${ts.end_time.slice(0,5)})</option>`).join('');
-    const dayOpts = DAYS.map(d =>
-      `<option value="${d.key}" ${d.key === preDayKey ? 'selected' : ''}>${d.label}</option>`).join('');
 
     if (!state.rooms.length || !state.teachers.length || !state.timeslots.length) {
       return `<p style="color:var(--danger);font-size:0.9rem;">⚠️ Cần có đủ <strong>Phòng</strong>, <strong>Giáo viên</strong> và <strong>Giờ học</strong> trước khi phân công lịch.</p>`;
     }
 
+    // Checkbox chọn ngày
+    const dayCheckboxes = DAYS.map(d => {
+      const checked = preDayKeys.includes(d.key) ? 'checked' : '';
+      return `
+        <div class="day-checkbox-item">
+          <input type="checkbox" id="day-cb-${d.key}" name="day-cb" value="${d.key}" ${checked} />
+          <label for="day-cb-${d.key}">${d.label}</label>
+        </div>`;
+    }).join('');
+
     return `
       <div class="form-row">
         <div class="form-group"><label class="form-label">Phòng học *</label>
           <select id="f-as-room" class="input">${roomOpts}</select></div>
-        <div class="form-group"><label class="form-label">Thứ *</label>
-          <select id="f-as-day" class="input">${dayOpts}</select></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Giáo viên *</label>
-          <select id="f-as-teacher" class="input">${teacherOpts}</select></div>
         <div class="form-group"><label class="form-label">Ca học *</label>
           <select id="f-as-ts" class="input">${tsOpts}</select></div>
+      </div>
+      <div class="form-group"><label class="form-label">Giáo viên *</label>
+        <select id="f-as-teacher" class="input">${teacherOpts}</select></div>
+      <div class="form-group">
+        <label class="form-label">Các ngày trong tuần *</label>
+        <div class="day-checkboxes">${dayCheckboxes}</div>
+        <button type="button" class="day-select-all" onclick="App.toggleAllDays()">Chọn tất cả / Bỏ chọn</button>
       </div>
       <div class="form-group"><label class="form-label">Ghi chú</label>
         <input id="f-as-note" class="input" placeholder="Tên lớp, môn học... (tùy chọn)" /></div>
       <div class="form-actions">
         <button class="btn btn-secondary" onclick="App.closeModal()">Hủy</button>
-        <button class="btn btn-primary" onclick="App.submitAddAssignment()">Lưu lịch</button>
+        <button class="btn btn-primary" onclick="App.submitAddAssignment()">💾 Lưu lịch</button>
       </div>`;
   }
 
@@ -986,35 +1015,59 @@ const App = (() => {
     openModal('➕ Phân công lịch học', buildAssignForm());
   }
 
+  /** Toggle tất cả checkbox ngày */
+  function toggleAllDays() {
+    const boxes = document.querySelectorAll('input[name="day-cb"]');
+    const anyUnchecked = [...boxes].some(b => !b.checked);
+    boxes.forEach(b => { b.checked = anyUnchecked; });
+  }
+
   async function submitAddAssignment() {
     const roomId     = parseInt(document.getElementById('f-as-room')?.value);
-    const dayOfWeek  = parseInt(document.getElementById('f-as-day')?.value);
     const teacherId  = parseInt(document.getElementById('f-as-teacher')?.value);
     const timeslotId = parseInt(document.getElementById('f-as-ts')?.value);
     const note       = document.getElementById('f-as-note')?.value.trim() || '';
 
-    if (!roomId || !dayOfWeek || !teacherId || !timeslotId) {
-      showToast('Vui lòng chọn đủ thông tin!', 'error'); return;
+    // Lấy danh sách ngày được chọn
+    const selectedDays = [...document.querySelectorAll('input[name="day-cb"]:checked')]
+      .map(b => parseInt(b.value));
+
+    if (!roomId || !teacherId || !timeslotId) {
+      showToast('Vui lòng chọn đủ Phòng, Giáo viên và Ca học!', 'error'); return;
+    }
+    if (selectedDays.length === 0) {
+      showToast('Vui lòng chọn ít nhất một ngày trong tuần!', 'error'); return;
     }
 
-    // Kiểm tra trùng lịch
-    const dup = state.schedules.find(s =>
-      s.rooms.id === roomId &&
-      s.day_of_week === dayOfWeek &&
-      s.timeslots.id === timeslotId
+    // Kiểm tra trùng lịch cho từng ngày được chọn
+    const duplicates = selectedDays.filter(day =>
+      state.schedules.find(s =>
+        s.rooms.id === roomId &&
+        s.day_of_week === day &&
+        s.timeslots.id === timeslotId
+      )
     );
-    if (dup) {
-      showToast('Phòng này đã có lịch vào giờ đó trong ngày đó!', 'error'); return;
+    if (duplicates.length > 0) {
+      const dupLabels = duplicates.map(d => DAYS.find(x => x.key === d)?.label).join(', ');
+      showToast(`Đã có lịch trùng vào: ${dupLabels}!`, 'error'); return;
     }
+
+    // Insert nhiều bản ghi (1 per ngày) cùng lúc
+    const toInsert = selectedDays.map(day => ({
+      room_id: roomId, teacher_id: teacherId,
+      timeslot_id: timeslotId, day_of_week: day, note,
+    }));
 
     try {
-      const saved = await SupabaseClient.addSchedule(roomId, teacherId, timeslotId, dayOfWeek, note);
-      // Fetch full record with joins
+      const { error } = await SupabaseClient.getClient()
+        .from('schedules').insert(toInsert);
+      if (error) throw error;
       const full = await SupabaseClient.getSchedules();
       state.schedules = full;
       closeModal();
       renderPage(state.page);
-      showToast('Đã thêm lịch học!', 'success');
+      const dayLabels = selectedDays.map(d => DAYS.find(x => x.key === d)?.label).join(', ');
+      showToast(`Đã thêm lịch cho ${selectedDays.length} ngày: ${dayLabels}!`, 'success');
     } catch (err) { showToast('Lỗi: ' + err.message, 'error'); }
   }
 
@@ -1083,7 +1136,7 @@ const App = (() => {
     openAddTimeslot, submitAddTimeslot, openEditTimeslot, submitEditTimeslot, deleteTimeslot,
     // Schedule
     openAddSlot, deleteSlot,
-    openAddAssignment, submitAddAssignment,
+    openAddAssignment, submitAddAssignment, toggleAllDays,
     // Sao chép ngày
     openCopyDayModal, updateCopyPreview, executeCopyDay,
   };

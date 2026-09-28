@@ -347,27 +347,29 @@ body {
 }
 .tkb-table thead th:first-child {
   text-align: left;
-  padding-left: 1rem;
-  min-width: 130px;
+  padding-left: 0.7rem;
+  min-width: 90px;
+  max-width: 120px;
   position: sticky;
   left: 0;
   z-index: 20;
   background: linear-gradient(135deg, #1e1b4b, #312e81);
 }
 
-/* Room name cell */
+/* Room name cell — thu nhỏ lại */
 .tkb-room-cell {
   background: linear-gradient(135deg, #312e81, #4338ca);
   color: white;
   font-weight: 700;
   font-size: 0.85rem;
-  padding: 0 1rem;
+  padding: 0 0.7rem;
   white-space: nowrap;
   border-right: 2px solid rgba(255,255,255,0.2);
   position: sticky;
   left: 0;
   z-index: 5;
-  min-width: 130px;
+  min-width: 90px;
+  max-width: 120px;
 }
 .room-name-text { display: block; }
 .room-sub { font-size: 0.72rem; font-weight: 400; opacity: 0.75; }
@@ -433,6 +435,15 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.slot-subject {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
 }
 .slot-time {
   font-size: 0.7rem;
@@ -554,6 +565,61 @@ body {
 }
 .modal-close:hover { background: var(--bg); color: var(--text); }
 .modal-body { padding: 1.2rem; }
+
+/* ===== CHECKBOX CHỌN NGÀY (form thêm lịch) ===== */
+.day-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.2rem;
+}
+.day-checkbox-item {
+  position: relative;
+}
+.day-checkbox-item input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0; height: 0;
+}
+.day-checkbox-item label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 62px;
+  padding: 0.35rem 0.55rem;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: white;
+  cursor: pointer;
+  transition: all 0.18s;
+  user-select: none;
+}
+.day-checkbox-item label:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-light);
+}
+.day-checkbox-item input[type="checkbox"]:checked + label {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+  box-shadow: 0 2px 6px rgba(79,70,229,0.3);
+}
+.day-select-all {
+  font-size: 0.78rem;
+  color: var(--primary);
+  cursor: pointer;
+  text-decoration: underline;
+  background: none;
+  border: none;
+  padding: 0;
+  margin-top: 0.3rem;
+  display: block;
+}
+.day-select-all:hover { color: var(--primary-dark); }
 
 /* ===== NÚT COPY NGÀY ===== */
 .btn-copy-day {
