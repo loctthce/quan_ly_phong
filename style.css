@@ -406,27 +406,16 @@ body {
   cursor: default;
   transition: box-shadow 0.15s, transform 0.15s;
   border-left: 3px solid transparent;
+  /* màu nền & border được set qua inline style theo ca học */
 }
 .class-slot:last-child { margin-bottom: 0; }
 .class-slot:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,0,0,0.12); }
 
-/* Màu slot theo buổi */
-.slot-morning {
-  background: #fffbeb;
-  border-left-color: #f59e0b;
-}
-.slot-afternoon {
-  background: #eff6ff;
-  border-left-color: #3b82f6;
-}
-.slot-evening {
-  background: #f5f3ff;
-  border-left-color: #7c3aed;
-}
-.slot-default {
-  background: #f0fdf4;
-  border-left-color: #16a34a;
-}
+/* Giữ lại các class buổi để dùng cho badge ở trang Giờ học */
+.slot-morning   { background: #fffbeb; border-left-color: #f59e0b; }
+.slot-afternoon { background: #eff6ff; border-left-color: #3b82f6; }
+.slot-evening   { background: #f5f3ff; border-left-color: #7c3aed; }
+.slot-default   { background: #f0fdf4; border-left-color: #16a34a; }
 
 .slot-teacher {
   font-size: 0.78rem;
@@ -620,6 +609,127 @@ body {
   display: block;
 }
 .day-select-all:hover { color: var(--primary-dark); }
+
+/* ===== LỊCH HÔM NAY ===== */
+.today-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  background: linear-gradient(135deg, #1e1b4b, #4f46e5);
+  color: white;
+  border-radius: var(--radius);
+  padding: 1rem 1.4rem;
+  margin-bottom: 1.4rem;
+  box-shadow: var(--shadow-md);
+}
+.today-date {
+  font-size: 1rem;
+  font-weight: 700;
+  flex: 1;
+  text-transform: capitalize;
+}
+.today-badge {
+  background: rgba(255,255,255,0.2);
+  padding: 0.25rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: 1px solid rgba(255,255,255,0.3);
+}
+.today-summary {
+  width: 100%;
+  font-size: 0.8rem;
+  opacity: 0.8;
+  margin-top: -0.2rem;
+}
+
+/* Nhóm theo khung giờ */
+.today-group {
+  margin-bottom: 1.2rem;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.today-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  gap: 0.5rem;
+}
+.today-group-time {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.today-time-icon { font-size: 1rem; }
+.today-time-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.today-time-range {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  background: white;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.today-count {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: white;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+/* Cards phòng học trong từng khung giờ */
+.today-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0;
+  background: white;
+}
+.today-card {
+  padding: 0.8rem 1rem;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.today-card:hover { background: #fafbff; }
+.today-card-room {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 0.3rem;
+}
+.today-card-teacher {
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.today-card-subject {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.today-card-note {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border);
+}
 
 /* ===== NÚT COPY NGÀY ===== */
 .btn-copy-day {

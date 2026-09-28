@@ -107,6 +107,7 @@ const App = (() => {
     });
     // Render page
     const titles = {
+      today:       '📆 Lịch Hôm Nay',
       schedule:    '📅 Thời khóa biểu',
       rooms:       '🚪 Quản lý Phòng',
       teachers:    '👨‍🏫 Giáo viên',
@@ -135,12 +136,113 @@ const App = (() => {
     }
 
     switch (page) {
+      case 'today':       renderTodayPage(content, topbarAct); break;
       case 'schedule':    renderSchedule(content, topbarAct); break;
       case 'rooms':       renderRoomsPage(content, topbarAct); break;
       case 'teachers':    renderTeachersPage(content, topbarAct); break;
       case 'timeslots':   renderTimeslotsPage(content, topbarAct); break;
       case 'assignments': renderAssignmentsPage(content, topbarAct); break;
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // PAGE: LỊCH HÔM NAY
+  // ═══════════════════════════════════════════════════════════════════════
+  function renderTodayPage(content, actions) {
+    actions.innerHTML = `
+      <button class="btn btn-secondary btn-sm" onclick="App.refreshAll()">🔄 Làm mới</button>
+    `;
+
+    // Xác định thứ hôm nay (JS: 0=CN,1=T2...6=T7 → app dùng 2-8)
+    const jsDay   = new Date().getDay(); // 0=CN
+    const todayKey = jsDay === 0 ? 8 : jsDay + 1; // CN→8, T2→2, ...T7→7
+    const todayLabel = DAYS.find(d => d.key === todayKey)?.label || '';
+
+    // Ngày hiển thị đẹp
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('vi-VN', {
+      weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric',
+    });
+
+    // Lọc lịch hôm nay
+    const todaySchedules = state.schedules.filter(s => s.day_of_week === todayKey);
+
+    // Build color map
+    const tsColorMap = buildTimeslotColorMap();
+
+    if (todaySchedules.length === 0) {
+      content.innerHTML = `
+        <div class="today-header">
+          <div class="today-date">${dateStr}</div>
+          <div class="today-badge">${todayLabel}</div>
+        </div>
+        <div class="empty-state" style="margin-top:1.5rem;">
+          <div class="empty-icon">🎉</div>
+          <h3>Không có lịch học hôm nay</h3>
+          <p>Hôm nay trung tâm không có lịch dạy nào được xếp.</p>
+        </div>`;
+      return;
+    }
+
+    // Nhóm theo ca học (timeslot), sắp xếp theo giờ bắt đầu
+    const byTimeslot = {};
+    todaySchedules.forEach(s => {
+      const tsId = s.timeslots.id;
+      if (!byTimeslot[tsId]) byTimeslot[tsId] = { timeslot: s.timeslots, slots: [] };
+      byTimeslot[tsId].slots.push(s);
+    });
+
+    // Sắp xếp các ca theo start_time
+    const sortedGroups = Object.values(byTimeslot).sort((a, b) =>
+      a.timeslot.start_time.localeCompare(b.timeslot.start_time)
+    );
+
+    const groupsHtml = sortedGroups.map(group => {
+      const ts      = group.timeslot;
+      const palette = tsColorMap[ts.id] || { bg: '#f8fafc', border: '#64748b' };
+      const timeStr = `${ts.start_time.slice(0,5)} – ${ts.end_time.slice(0,5)}`;
+
+      // Sắp xếp slots trong ca theo tên phòng
+      group.slots.sort((a, b) => a.rooms.name.localeCompare(b.rooms.name));
+
+      const cards = group.slots.map(s => {
+        const teacherColor = s.teachers.color || palette.border;
+        return `
+          <div class="today-card" style="border-top:3px solid ${teacherColor};">
+            <div class="today-card-room">${escHtml(s.rooms.name)}</div>
+            <div class="today-card-teacher" style="color:${teacherColor};">
+              ${escHtml(s.teachers.name)}
+            </div>
+            ${s.teachers.subject
+              ? `<div class="today-card-subject">${escHtml(s.teachers.subject)}</div>`
+              : ''}
+            ${s.note
+              ? `<div class="today-card-note">📝 ${escHtml(s.note)}</div>`
+              : ''}
+          </div>`;
+      }).join('');
+
+      return `
+        <div class="today-group">
+          <div class="today-group-header" style="background:${palette.bg};border-left:4px solid ${palette.border};">
+            <div class="today-group-time">
+              <span class="today-time-icon">🕐</span>
+              <span class="today-time-label">${escHtml(ts.name)}</span>
+              <span class="today-time-range">${timeStr}</span>
+            </div>
+            <span class="today-count">${group.slots.length} phòng</span>
+          </div>
+          <div class="today-cards">${cards}</div>
+        </div>`;
+    }).join('');
+
+    content.innerHTML = `
+      <div class="today-header">
+        <div class="today-date">${dateStr}</div>
+        <div class="today-badge">${todayLabel}</div>
+        <div class="today-summary">${todaySchedules.length} ca dạy · ${sortedGroups.length} khung giờ</div>
+      </div>
+      ${groupsHtml}`;
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -164,7 +266,8 @@ const App = (() => {
     }
 
     // Build lookup maps
-    const scheduleMap = buildScheduleMap();
+    const scheduleMap  = buildScheduleMap();
+    const tsColorMap   = buildTimeslotColorMap(); // màu nền theo ca học
 
     // Header các thứ — thêm nút copy nhỏ
     const thDays = DAYS.map(d => `
@@ -180,7 +283,7 @@ const App = (() => {
         const slots = (scheduleMap[room.id] && scheduleMap[room.id][d.key]) || [];
         slots.sort((a, b) => (a.timeslots.start_time > b.timeslots.start_time ? 1 : -1));
         const slotsHtml = slots.length
-          ? slots.map(s => renderClassSlot(s)).join('')
+          ? slots.map(s => renderClassSlot(s, tsColorMap)).join('')
           : `<div class="tkb-empty">—</div>`;
         return `
           <td class="tkb-day-cell">
@@ -228,22 +331,55 @@ const App = (() => {
     return map;
   }
 
-  function getSlotClass(startTime) {
-    if (!startTime) return 'slot-default';
-    const h = parseInt(startTime.split(':')[0], 10);
-    if (h < 12)  return 'slot-morning';
-    if (h < 18)  return 'slot-afternoon';
-    return 'slot-evening';
+  // Palette màu nền pastel cho từng ca học — đủ tương phản, dễ nhìn
+  // Mỗi ca học (timeslot) sẽ được gán 1 màu nhất quán theo index của nó
+  const SLOT_PALETTE = [
+    { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' }, // vàng hổ phách
+    { bg: '#dbeafe', border: '#3b82f6', text: '#1e40af' }, // xanh dương
+    { bg: '#f3e8ff', border: '#a855f7', text: '#6b21a8' }, // tím
+    { bg: '#dcfce7', border: '#22c55e', text: '#14532d' }, // xanh lá
+    { bg: '#fee2e2', border: '#ef4444', text: '#991b1b' }, // đỏ hồng
+    { bg: '#e0f2fe', border: '#0ea5e9', text: '#0c4a6e' }, // xanh trời
+    { bg: '#fce7f3', border: '#ec4899', text: '#9d174d' }, // hồng
+    { bg: '#fff7ed', border: '#f97316', text: '#9a3412' }, // cam
+    { bg: '#f0fdf4', border: '#16a34a', text: '#14532d' }, // xanh mint
+    { bg: '#f8fafc', border: '#64748b', text: '#1e293b' }, // xám
+    { bg: '#fdf4ff', border: '#c026d3', text: '#701a75' }, // tím hồng
+    { bg: '#ecfdf5', border: '#10b981', text: '#064e3b' }, // ngọc lục bảo
+  ];
+
+  /**
+   * Xây dựng map: timeslot_id → index màu, dựa trên thứ tự sort_order của timeslot
+   * Đảm bảo cùng 1 ca học luôn ra cùng 1 màu dù render bao nhiêu lần
+   */
+  function buildTimeslotColorMap() {
+    const colorMap = {};
+    // Sắp xếp timeslots theo start_time để gán màu nhất quán
+    const sorted = [...state.timeslots].sort((a, b) =>
+      a.start_time.localeCompare(b.start_time)
+    );
+    sorted.forEach((ts, idx) => {
+      colorMap[ts.id] = SLOT_PALETTE[idx % SLOT_PALETTE.length];
+    });
+    return colorMap;
   }
 
-  function renderClassSlot(s) {
-    const slotClass = getSlotClass(s.timeslots.start_time);
-    const color     = s.teachers.color || '#4f46e5';
-    const timeLabel = `${s.timeslots.start_time.slice(0,5)} – ${s.timeslots.end_time.slice(0,5)}`;
+  /**
+   * Render 1 ô lịch trong TKB.
+   * @param {object} s         - schedule record (có join rooms/teachers/timeslots)
+   * @param {object} tsColorMap - map timeslot_id → { bg, border, text }
+   */
+  function renderClassSlot(s, tsColorMap = {}) {
+    const palette     = tsColorMap[s.timeslots.id] || SLOT_PALETTE[0];
+    const teacherColor = s.teachers.color || palette.border;
+    const timeLabel   = `${s.timeslots.start_time.slice(0,5)} – ${s.timeslots.end_time.slice(0,5)}`;
     return `
-      <div class="class-slot ${slotClass}" style="border-left-color:${color};">
-        <div class="slot-teacher" style="color:${color};">${escHtml(s.teachers.name)}</div>
-        ${s.teachers.subject ? `<div class="slot-subject">${escHtml(s.teachers.subject)}</div>` : ''}
+      <div class="class-slot" style="
+          background:${palette.bg};
+          border-left-color:${palette.border};
+        ">
+        <div class="slot-teacher" style="color:${teacherColor};">${escHtml(s.teachers.name)}</div>
+        ${s.teachers.subject ? `<div class="slot-subject" style="color:${palette.border};">${escHtml(s.teachers.subject)}</div>` : ''}
         <div class="slot-time">${timeLabel}</div>
         ${s.note ? `<div class="slot-time" style="font-style:italic;">${escHtml(s.note)}</div>` : ''}
         <div class="slot-actions">
@@ -253,8 +389,14 @@ const App = (() => {
       </div>`;
   }
 
-  // Mở modal thêm lịch nhanh từ TKB (pre-check ngày tương ứng)
-  function openAddSlot(roomId, dayOfWeek) {
+  // Hàm giữ lại để getSlotClass vẫn dùng được ở renderTimeslotsPage (badge buổi)
+  function getSlotClass(startTime) {
+    if (!startTime) return 'slot-default';
+    const h = parseInt(startTime.split(':')[0], 10);
+    if (h < 12)  return 'slot-morning';
+    if (h < 18)  return 'slot-afternoon';
+    return 'slot-evening';
+  }
     const room = state.rooms.find(r => r.id === roomId);
     openModal(`➕ Thêm lịch — ${room?.name || ''}`, buildAssignForm(roomId, [dayOfWeek]));
   }
