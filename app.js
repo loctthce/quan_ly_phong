@@ -29,53 +29,24 @@ const App = (() => {
       try {
         SupabaseClient.init(cfg.url, cfg.key);
         setStatusConnected();
-        document.getElementById('config-backdrop').classList.add('hidden');
-        loadAllData().then(() => navigate('schedule'));
+        loadAllData().then(() => navigate('today'));
       } catch (err) {
         console.error('Lỗi khởi tạo Supabase:', err);
-        showConfigModal();
+        setStatusError();
+        showToast('Lỗi kết nối Supabase. Kiểm tra lại config.js!', 'error');
       }
     } else {
-      // Chưa có config ở đâu cả → hiện modal nhập tay
-      showConfigModal();
-    }
-  }
-
-  function showConfigModal() {
-    const bd = document.getElementById('config-backdrop');
-    bd.classList.remove('hidden');
-    const cfg = SupabaseClient.loadConfig();
-    document.getElementById('cfg-url').value = cfg.url || '';
-    document.getElementById('cfg-key').value = cfg.key || '';
-  }
-
-  async function saveConfig() {
-    const url = document.getElementById('cfg-url').value.trim();
-    const key = document.getElementById('cfg-key').value.trim();
-    if (!url || !key) { showToast('Vui lòng nhập đủ URL và Key!', 'error'); return; }
-    try {
-      SupabaseClient.saveConfig(url, key);
-      SupabaseClient.init(url, key);
-      // Test connection
-      await SupabaseClient.getRooms();
-      setStatusConnected();
-      document.getElementById('config-backdrop').classList.add('hidden');
-      showToast('Kết nối Supabase thành công! 🎉', 'success');
-      await loadAllData();
-      navigate('schedule');
-    } catch (err) {
-      showToast('Lỗi kết nối: ' + err.message, 'error');
-      SupabaseClient.clearConfig();
       setStatusError();
+      showToast('Chưa cấu hình Supabase. Vui lòng điền thông tin vào file config.js!', 'error');
     }
   }
 
   function setStatusConnected() {
-    document.getElementById('status-dot').className  = 'status-dot connected';
+    document.getElementById('status-dot').className   = 'status-dot connected';
     document.getElementById('status-text').textContent = 'Đã kết nối';
   }
   function setStatusError() {
-    document.getElementById('status-dot').className  = 'status-dot error';
+    document.getElementById('status-dot').className   = 'status-dot error';
     document.getElementById('status-text').textContent = 'Lỗi kết nối';
   }
 
@@ -129,8 +100,7 @@ const App = (() => {
         <div class="empty-state">
           <div class="empty-icon">⚙️</div>
           <h3>Chưa kết nối Supabase</h3>
-          <p>Nhấn vào trạng thái kết nối ở cuối sidebar để cấu hình.</p>
-          <br><button class="btn btn-primary" onclick="App.showConfigModal()">Cấu hình ngay</button>
+          <p>Vui lòng kiểm tra lại thông tin trong file <strong>config.js</strong>.</p>
         </div>`;
       return;
     }
@@ -397,6 +367,9 @@ const App = (() => {
     if (h < 18)  return 'slot-afternoon';
     return 'slot-evening';
   }
+
+  // Mở modal thêm lịch nhanh từ TKB (pre-check ngày tương ứng)
+  function openAddSlot(roomId, dayOfWeek) {
     const room = state.rooms.find(r => r.id === roomId);
     openModal(`➕ Thêm lịch — ${room?.name || ''}`, buildAssignForm(roomId, [dayOfWeek]));
   }
@@ -406,11 +379,87 @@ const App = (() => {
     try {
       await SupabaseClient.deleteSchedule(id);
       state.schedules = state.schedules.filter(s => s.id !== id);
-      renderPage('schedule');
+      renderPage(state.page);
       showToast('Đã xóa lịch!', 'success');
     } catch (err) {
       showToast('Lỗi: ' + err.message, 'error');
     }
+  }
+
+  function openEditSlot(id) {
+    const s = state.schedules.find(s => s.id === id);
+    if (!s) return;
+
+    const roomOpts = state.rooms.map(r =>
+      `<option value="${r.id}" ${r.id === s.rooms.id ? 'selected' : ''}>${escHtml(r.name)}</option>`
+    ).join('');
+    const teacherOpts = state.teachers.map(t =>
+      `<option value="${t.id}" ${t.id === s.teachers.id ? 'selected' : ''}>${escHtml(t.name)}</option>`
+    ).join('');
+    const tsOpts = state.timeslots.map(ts =>
+      `<option value="${ts.id}" ${ts.id === s.timeslots.id ? 'selected' : ''}>${escHtml(ts.name)} (${ts.start_time.slice(0,5)}–${ts.end_time.slice(0,5)})</option>`
+    ).join('');
+    const dayOpts = DAYS.map(d =>
+      `<option value="${d.key}" ${d.key === s.day_of_week ? 'selected' : ''}>${d.label}</option>`
+    ).join('');
+
+    openModal('✏️ Sửa lịch dạy', `
+      <div class="edit-slot-banner" style="background:#f1f5f9;border-radius:6px;padding:0.6rem 0.8rem;margin-bottom:1rem;font-size:0.85rem;color:#475569;">
+        📌 Đang sửa: <strong>${escHtml(s.rooms.name)}</strong> —
+        <strong>${DAYS.find(d => d.key === s.day_of_week)?.label}</strong> —
+        <strong style="color:${s.teachers.color}">${escHtml(s.teachers.name)}</strong>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Phòng học *</label>
+          <select id="es-room" class="input">${roomOpts}</select></div>
+        <div class="form-group"><label class="form-label">Ngày trong tuần *</label>
+          <select id="es-day" class="input">${dayOpts}</select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Giáo viên *</label>
+          <select id="es-teacher" class="input">${teacherOpts}</select></div>
+        <div class="form-group"><label class="form-label">Ca học *</label>
+          <select id="es-ts" class="input">${tsOpts}</select></div>
+      </div>
+      <div class="form-group"><label class="form-label">Ghi chú</label>
+        <input id="es-note" class="input" value="${escHtml(s.note || '')}" placeholder="Tên lớp, môn học..." />
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-secondary" onclick="App.closeModal()">Hủy</button>
+        <button class="btn btn-primary" onclick="App.submitEditSlot(${id})">💾 Cập nhật</button>
+      </div>`);
+  }
+
+  async function submitEditSlot(id) {
+    const roomId     = parseInt(document.getElementById('es-room')?.value);
+    const dayOfWeek  = parseInt(document.getElementById('es-day')?.value);
+    const teacherId  = parseInt(document.getElementById('es-teacher')?.value);
+    const timeslotId = parseInt(document.getElementById('es-ts')?.value);
+    const note       = document.getElementById('es-note')?.value.trim() || '';
+
+    if (!roomId || !dayOfWeek || !teacherId || !timeslotId) {
+      showToast('Vui lòng chọn đủ thông tin!', 'error'); return;
+    }
+    const dup = state.schedules.find(s =>
+      s.id !== id &&
+      s.rooms.id === roomId &&
+      s.day_of_week === dayOfWeek &&
+      s.timeslots.id === timeslotId
+    );
+    if (dup) {
+      showToast(`Đã có lịch của GV ${dup.teachers.name} vào giờ này!`, 'error'); return;
+    }
+    try {
+      await SupabaseClient.updateSchedule(id, {
+        room_id: roomId, teacher_id: teacherId,
+        timeslot_id: timeslotId, day_of_week: dayOfWeek, note,
+      });
+      const full = await SupabaseClient.getSchedules();
+      state.schedules = full;
+      closeModal();
+      renderPage(state.page);
+      showToast('Đã cập nhật lịch dạy! ✅', 'success');
+    } catch (err) { showToast('Lỗi cập nhật: ' + err.message, 'error'); }
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -1261,15 +1310,12 @@ const App = (() => {
   // ── Bootstrap ────────────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
     init();
-    // Config status click → mở lại config modal
-    document.getElementById('config-status').addEventListener('click', showConfigModal);
   });
 
   return {
     navigate, refreshAll,
     openSidebar, closeSidebar,
     openModal, closeModal,
-    showConfigModal, saveConfig,
     // Rooms
     openAddRoom, submitAddRoom, openEditRoom, submitEditRoom, deleteRoom,
     // Teachers
@@ -1277,7 +1323,7 @@ const App = (() => {
     // Timeslots
     openAddTimeslot, submitAddTimeslot, openEditTimeslot, submitEditTimeslot, deleteTimeslot,
     // Schedule
-    openAddSlot, deleteSlot,
+    openAddSlot, deleteSlot, openEditSlot, submitEditSlot,
     openAddAssignment, submitAddAssignment, toggleAllDays,
     // Sao chép ngày
     openCopyDayModal, updateCopyPreview, executeCopyDay,
