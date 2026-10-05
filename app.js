@@ -1353,31 +1353,52 @@ const App = (() => {
       return;
     }
 
-    const tsColorMap  = buildTimeslotColorMap();
-    const occupiedSet = new Set(
-      state.schedules.map(s => `${s.rooms.id}-${s.day_of_week}-${s.timeslots.id}`)
-    );
+    const tsColorMap = buildTimeslotColorMap();
+
+    /**
+     * Kiểm tra hai khoảng thời gian có overlap không.
+     * Dạng "HH:MM:SS" hoặc "HH:MM" — so sánh string lexicographic hoạt động
+     * đúng vì format đồng nhất.
+     * Overlap khi: startA < endB AND endA > startB
+     */
+    function timesOverlap(startA, endA, startB, endB) {
+      return startA < endB && endA > startB;
+    }
+
+    /**
+     * Với một phòng + ngày + ca cần kiểm tra (ts):
+     * Phòng được coi là TRỐNG nếu KHÔNG có lịch nào trong ngày đó
+     * mà ca đó overlap với ts.
+     */
+    function isRoomFreeForTs(roomId, dayKey, ts) {
+      return !state.schedules.some(s =>
+        s.rooms.id     === roomId &&
+        s.day_of_week  === dayKey &&
+        timesOverlap(
+          ts.start_time, ts.end_time,
+          s.timeslots.start_time, s.timeslots.end_time
+        )
+      );
+    }
 
     // Lọc danh sách ca đã chọn, sắp xếp theo giờ
     const selectedTs = state.timeslots
       .filter(ts => selectedIds.includes(ts.id))
       .sort((a, b) => a.start_time.localeCompare(b.start_time));
 
-    // Với mỗi ca → tìm tất cả (ngày × phòng) còn trống
+    // Với mỗi ca → tìm tất cả (ngày × phòng) không bị overlap
     const tsGroups = selectedTs.map(ts => {
       const palette = tsColorMap[ts.id] || { bg: '#f8fafc', border: '#64748b' };
       const timeStr = `${ts.start_time.slice(0,5)} – ${ts.end_time.slice(0,5)}`;
 
-      // Nhóm theo ngày
       const dayRows = DAYS.map(day => {
         const vacantRooms = state.rooms.filter(r =>
-          !occupiedSet.has(`${r.id}-${day.key}-${ts.id}`)
+          isRoomFreeForTs(r.id, day.key, ts)
         );
         return { day, vacantRooms };
       }).filter(row => row.vacantRooms.length > 0);
 
       const totalVacant = dayRows.reduce((s, r) => s + r.vacantRooms.length, 0);
-
       return { ts, palette, timeStr, dayRows, totalVacant };
     });
 
@@ -1388,13 +1409,13 @@ const App = (() => {
         <div class="vq-result-empty">
           <div style="font-size:2rem;margin-bottom:0.5rem;">🎉</div>
           <strong>Không có phòng trống</strong>
-          <p>Tất cả phòng đều đã có lịch trong các ca bạn chọn.</p>
+          <p>Tất cả phòng đều đã có lịch (kể cả các ca trùng giờ) trong những ca bạn chọn.</p>
         </div>`;
       return;
     }
 
     resultsEl.innerHTML = tsGroups.map(({ ts, palette, timeStr, dayRows, totalVacant }) => {
-      if (totalVacant === 0) return ''; // ca này kín hết, bỏ qua
+      if (totalVacant === 0) return '';
 
       const dayRowsHtml = dayRows.map(({ day, vacantRooms }) => {
         const roomTags = vacantRooms.map(r => `
