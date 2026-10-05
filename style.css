@@ -836,6 +836,178 @@ body {
 .cp-badge-copy { background: #dcfce7; color: #15803d; }
 .cp-badge-skip { background: #f1f5f9; color: var(--text-muted); }
 
+/* ===== PHÒNG TRỐNG ===== */
+.vacant-summary {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.4rem;
+  margin-bottom: 1.4rem;
+  box-shadow: var(--shadow);
+  flex-wrap: wrap;
+}
+.vacant-summary.fully-booked {
+  background: #f0fdf4;
+  border-color: #86efac;
+  gap: 0.75rem;
+}
+.vacant-sum-icon { font-size: 1.6rem; }
+.vacant-sum-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 52px;
+}
+.vacant-sum-num {
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.vacant-sum-num.green { color: #16a34a; }
+.vacant-sum-num.blue  { color: var(--primary); }
+.vacant-sum-num.gray  { color: var(--text-muted); }
+.vacant-sum-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.vacant-sum-divider {
+  width: 1px;
+  height: 36px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+.vacant-progress-wrap {
+  flex: 1;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.vacant-progress-bar {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.vacant-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4f46e5, #7c3aed);
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
+.vacant-progress-pct {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* Ngày */
+.vacant-day-block {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 1rem;
+  box-shadow: var(--shadow);
+}
+.vacant-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  background: linear-gradient(135deg, #1e1b4b, #4f46e5);
+  color: white;
+}
+.vacant-day-label {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+.vacant-day-count {
+  font-size: 0.75rem;
+  background: rgba(255,255,255,0.2);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.3);
+}
+.vacant-groups {
+  padding: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* Hàng ca học */
+.vacant-ts-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.vacant-ts-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.45rem 0.7rem;
+  border-radius: var(--radius-sm);
+  min-width: 140px;
+  flex-shrink: 0;
+}
+.vacant-ts-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.vacant-ts-time {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.vacant-ts-count {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Tags phòng trống — click để thêm lịch */
+.vacant-rooms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.3rem 0;
+  align-items: center;
+}
+.vacant-room-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0.3rem 0.65rem;
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #15803d;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.vacant-room-tag:hover {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(22,163,74,0.25);
+}
+.vacant-tag-plus {
+  font-size: 0.9rem;
+  font-weight: 800;
+  opacity: 0.7;
+}
+.vacant-room-tag:hover .vacant-tag-plus { opacity: 1; }
+
 /* ===== TOAST ===== */
 .toast {
   position: fixed;

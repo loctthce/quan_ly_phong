@@ -84,6 +84,7 @@ const App = (() => {
       teachers:    '👨‍🏫 Giáo viên',
       timeslots:   '🕐 Giờ học',
       assignments: '✏️ Lịch phân công',
+      vacant:      '🟢 Đề Xuất Phòng Trống',
     };
     document.getElementById('page-title').textContent = titles[page] || page;
     renderPage(page);
@@ -112,6 +113,7 @@ const App = (() => {
       case 'teachers':    renderTeachersPage(content, topbarAct); break;
       case 'timeslots':   renderTimeslotsPage(content, topbarAct); break;
       case 'assignments': renderAssignmentsPage(content, topbarAct); break;
+      case 'vacant':      renderVacantPage(content, topbarAct); break;
     }
   }
 
@@ -1260,6 +1262,132 @@ const App = (() => {
       const dayLabels = selectedDays.map(d => DAYS.find(x => x.key === d)?.label).join(', ');
       showToast(`Đã thêm lịch cho ${selectedDays.length} ngày: ${dayLabels}!`, 'success');
     } catch (err) { showToast('Lỗi: ' + err.message, 'error'); }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // PAGE: ĐỀ XUẤT PHÒNG TRỐNG
+  // Hiển thị tất cả tổ hợp (Phòng × Ca học) còn trống trong từng ngày
+  // ═══════════════════════════════════════════════════════════════════════
+  function renderVacantPage(content, actions) {
+    actions.innerHTML = `
+      <button class="btn btn-secondary btn-sm" onclick="App.refreshAll()">🔄 Làm mới</button>
+    `;
+
+    if (state.rooms.length === 0 || state.timeslots.length === 0) {
+      content.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">🟢</div>
+          <h3>Chưa có dữ liệu</h3>
+          <p>Cần thiết lập <strong>Phòng</strong> và <strong>Giờ học</strong> trước.</p>
+        </div>`;
+      return;
+    }
+
+    // Tổng số ca × phòng có thể có
+    const total   = state.rooms.length * state.timeslots.length * DAYS.length;
+    const occupied = state.schedules.length;
+    const vacant   = total - occupied;
+
+    // Build color map cho ca học
+    const tsColorMap = buildTimeslotColorMap();
+
+    // Build occupied set: "roomId-day-tsId"
+    const occupiedSet = new Set(
+      state.schedules.map(s => `${s.rooms.id}-${s.day_of_week}-${s.timeslots.id}`)
+    );
+
+    // Sắp xếp timeslots theo giờ
+    const sortedTs = [...state.timeslots].sort((a, b) =>
+      a.start_time.localeCompare(b.start_time)
+    );
+
+    // Build theo từng ngày → trong ngày nhóm theo ca
+    const dayBlocks = DAYS.map(day => {
+      const groups = sortedTs.map(ts => {
+        const vacantRooms = state.rooms.filter(r =>
+          !occupiedSet.has(`${r.id}-${day.key}-${ts.id}`)
+        );
+        return { ts, vacantRooms };
+      }).filter(g => g.vacantRooms.length > 0); // chỉ giữ ca có phòng trống
+
+      return { day, groups };
+    }).filter(b => b.groups.length > 0); // chỉ giữ ngày có trống
+
+    if (dayBlocks.length === 0) {
+      content.innerHTML = `
+        <div class="vacant-summary fully-booked">
+          <span class="vacant-sum-icon">📋</span>
+          <div>
+            <strong>Tất cả phòng đều có lịch!</strong>
+            <span>${occupied} / ${total} ca đã được xếp lịch.</span>
+          </div>
+        </div>`;
+      return;
+    }
+
+    // Summary bar
+    const summaryHtml = `
+      <div class="vacant-summary">
+        <div class="vacant-sum-item">
+          <span class="vacant-sum-num green">${vacant}</span>
+          <span class="vacant-sum-label">Ca trống</span>
+        </div>
+        <div class="vacant-sum-divider"></div>
+        <div class="vacant-sum-item">
+          <span class="vacant-sum-num blue">${occupied}</span>
+          <span class="vacant-sum-label">Đã xếp</span>
+        </div>
+        <div class="vacant-sum-divider"></div>
+        <div class="vacant-sum-item">
+          <span class="vacant-sum-num gray">${total}</span>
+          <span class="vacant-sum-label">Tổng ca</span>
+        </div>
+        <div class="vacant-progress-wrap">
+          <div class="vacant-progress-bar">
+            <div class="vacant-progress-fill" style="width:${Math.round(occupied/total*100)}%"></div>
+          </div>
+          <span class="vacant-progress-pct">${Math.round(occupied/total*100)}% lấp đầy</span>
+        </div>
+      </div>`;
+
+    // Các ngày có phòng trống
+    const blocksHtml = dayBlocks.map(({ day, groups }) => {
+      const dayVacantCount = groups.reduce((s, g) => s + g.vacantRooms.length, 0);
+
+      const groupsHtml = groups.map(({ ts, vacantRooms }) => {
+        const palette  = tsColorMap[ts.id] || { bg: '#f8fafc', border: '#64748b' };
+        const timeStr  = `${ts.start_time.slice(0,5)} – ${ts.end_time.slice(0,5)}`;
+
+        const roomTags = vacantRooms.map(r => `
+          <button class="vacant-room-tag"
+            onclick="App.openAddSlot(${r.id}, ${day.key})"
+            title="Thêm lịch: ${escHtml(r.name)} / ${escHtml(ts.name)}">
+            <span>🚪 ${escHtml(r.name)}</span>
+            <span class="vacant-tag-plus">+</span>
+          </button>`).join('');
+
+        return `
+          <div class="vacant-ts-row">
+            <div class="vacant-ts-label" style="background:${palette.bg};border-left:3px solid ${palette.border};">
+              <span class="vacant-ts-name">${escHtml(ts.name)}</span>
+              <span class="vacant-ts-time">${timeStr}</span>
+              <span class="vacant-ts-count">${vacantRooms.length} phòng</span>
+            </div>
+            <div class="vacant-rooms">${roomTags}</div>
+          </div>`;
+      }).join('');
+
+      return `
+        <div class="vacant-day-block">
+          <div class="vacant-day-header">
+            <span class="vacant-day-label">${day.label}</span>
+            <span class="vacant-day-count">${dayVacantCount} ca trống</span>
+          </div>
+          <div class="vacant-groups">${groupsHtml}</div>
+        </div>`;
+    }).join('');
+
+    content.innerHTML = summaryHtml + blocksHtml;
   }
 
   // ═══════════════════════════════════════════════════════════════════════
