@@ -1266,7 +1266,10 @@ const App = (() => {
 
   // ═══════════════════════════════════════════════════════════════════════
   // PAGE: ĐỀ XUẤT PHÒNG TRỐNG
-  // Hiển thị tất cả tổ hợp (Phòng × Ca học) còn trống trong từng ngày
+  // ═══════════════════════════════════════════════════════════════════════
+  // PAGE: ĐỀ XUẤT PHÒNG TRỐNG
+  // Admin chọn các ca muốn tìm → click Tìm kiếm → hiển thị phòng trống
+  // kết quả nhóm theo ca dạy
   // ═══════════════════════════════════════════════════════════════════════
   function renderVacantPage(content, actions) {
     actions.innerHTML = `
@@ -1283,111 +1286,145 @@ const App = (() => {
       return;
     }
 
-    // Tổng số ca × phòng có thể có
-    const total   = state.rooms.length * state.timeslots.length * DAYS.length;
-    const occupied = state.schedules.length;
-    const vacant   = total - occupied;
-
-    // Build color map cho ca học
-    const tsColorMap = buildTimeslotColorMap();
-
-    // Build occupied set: "roomId-day-tsId"
-    const occupiedSet = new Set(
-      state.schedules.map(s => `${s.rooms.id}-${s.day_of_week}-${s.timeslots.id}`)
-    );
-
-    // Sắp xếp timeslots theo giờ
-    const sortedTs = [...state.timeslots].sort((a, b) =>
+    const sortedTs = [...state.timeslots].sort((a,b) =>
       a.start_time.localeCompare(b.start_time)
     );
+    const tsColorMap = buildTimeslotColorMap();
 
-    // Build theo từng ngày → trong ngày nhóm theo ca
-    const dayBlocks = DAYS.map(day => {
-      const groups = sortedTs.map(ts => {
-        const vacantRooms = state.rooms.filter(r =>
-          !occupiedSet.has(`${r.id}-${day.key}-${ts.id}`)
-        );
-        return { ts, vacantRooms };
-      }).filter(g => g.vacantRooms.length > 0); // chỉ giữ ca có phòng trống
+    // ── Form chọn ca ──
+    const tsCheckboxes = sortedTs.map(ts => {
+      const palette  = tsColorMap[ts.id] || { bg: '#f8fafc', border: '#64748b' };
+      const timeStr  = `${ts.start_time.slice(0,5)} – ${ts.end_time.slice(0,5)}`;
+      return `
+        <div class="vq-cb-item">
+          <input type="checkbox" id="vq-ts-${ts.id}" name="vq-ts" value="${ts.id}" />
+          <label for="vq-ts-${ts.id}"
+            style="border-left:3px solid ${palette.border};background:${palette.bg};">
+            <span class="vq-cb-name">${escHtml(ts.name)}</span>
+            <span class="vq-cb-time">${timeStr}</span>
+          </label>
+        </div>`;
+    }).join('');
 
-      return { day, groups };
-    }).filter(b => b.groups.length > 0); // chỉ giữ ngày có trống
+    content.innerHTML = `
+      <div class="vq-form-card">
+        <div class="vq-form-title">🔍 Chọn ca học cần tìm phòng trống</div>
+        <p class="vq-form-desc">
+          Chọn một hoặc nhiều ca dạy bên dưới, sau đó nhấn <strong>Tìm kiếm</strong>
+          để xem các phòng còn trống trong tất cả các ngày.
+        </p>
 
-    if (dayBlocks.length === 0) {
-      content.innerHTML = `
-        <div class="vacant-summary fully-booked">
-          <span class="vacant-sum-icon">📋</span>
-          <div>
-            <strong>Tất cả phòng đều có lịch!</strong>
-            <span>${occupied} / ${total} ca đã được xếp lịch.</span>
-          </div>
+        <div class="vq-cb-group">${tsCheckboxes}</div>
+
+        <div class="vq-form-footer">
+          <button class="btn btn-secondary btn-sm" onclick="App.vacantToggleAll()">
+            ☑ Chọn tất cả / Bỏ chọn
+          </button>
+          <button class="btn btn-primary" onclick="App.searchVacant()">
+            🔍 Tìm kiếm phòng trống
+          </button>
+        </div>
+      </div>
+
+      <div id="vacant-results"></div>
+    `;
+  }
+
+  /** Toggle chọn tất cả / bỏ chọn checkbox ca */
+  function vacantToggleAll() {
+    const boxes = document.querySelectorAll('input[name="vq-ts"]');
+    const anyUnchecked = [...boxes].some(b => !b.checked);
+    boxes.forEach(b => { b.checked = anyUnchecked; });
+  }
+
+  /** Thực hiện tìm kiếm và render kết quả */
+  function searchVacant() {
+    const selectedIds = [...document.querySelectorAll('input[name="vq-ts"]:checked')]
+      .map(b => parseInt(b.value));
+
+    const resultsEl = document.getElementById('vacant-results');
+    if (!resultsEl) return;
+
+    if (selectedIds.length === 0) {
+      resultsEl.innerHTML = `
+        <div class="vq-no-selection">
+          ⚠️ Vui lòng chọn ít nhất một ca học.
         </div>`;
       return;
     }
 
-    // Summary bar
-    const summaryHtml = `
-      <div class="vacant-summary">
-        <div class="vacant-sum-item">
-          <span class="vacant-sum-num green">${vacant}</span>
-          <span class="vacant-sum-label">Ca trống</span>
-        </div>
-        <div class="vacant-sum-divider"></div>
-        <div class="vacant-sum-item">
-          <span class="vacant-sum-num blue">${occupied}</span>
-          <span class="vacant-sum-label">Đã xếp</span>
-        </div>
-        <div class="vacant-sum-divider"></div>
-        <div class="vacant-sum-item">
-          <span class="vacant-sum-num gray">${total}</span>
-          <span class="vacant-sum-label">Tổng ca</span>
-        </div>
-        <div class="vacant-progress-wrap">
-          <div class="vacant-progress-bar">
-            <div class="vacant-progress-fill" style="width:${Math.round(occupied/total*100)}%"></div>
-          </div>
-          <span class="vacant-progress-pct">${Math.round(occupied/total*100)}% lấp đầy</span>
-        </div>
-      </div>`;
+    const tsColorMap  = buildTimeslotColorMap();
+    const occupiedSet = new Set(
+      state.schedules.map(s => `${s.rooms.id}-${s.day_of_week}-${s.timeslots.id}`)
+    );
 
-    // Các ngày có phòng trống
-    const blocksHtml = dayBlocks.map(({ day, groups }) => {
-      const dayVacantCount = groups.reduce((s, g) => s + g.vacantRooms.length, 0);
+    // Lọc danh sách ca đã chọn, sắp xếp theo giờ
+    const selectedTs = state.timeslots
+      .filter(ts => selectedIds.includes(ts.id))
+      .sort((a, b) => a.start_time.localeCompare(b.start_time));
 
-      const groupsHtml = groups.map(({ ts, vacantRooms }) => {
-        const palette  = tsColorMap[ts.id] || { bg: '#f8fafc', border: '#64748b' };
-        const timeStr  = `${ts.start_time.slice(0,5)} – ${ts.end_time.slice(0,5)}`;
+    // Với mỗi ca → tìm tất cả (ngày × phòng) còn trống
+    const tsGroups = selectedTs.map(ts => {
+      const palette = tsColorMap[ts.id] || { bg: '#f8fafc', border: '#64748b' };
+      const timeStr = `${ts.start_time.slice(0,5)} – ${ts.end_time.slice(0,5)}`;
 
+      // Nhóm theo ngày
+      const dayRows = DAYS.map(day => {
+        const vacantRooms = state.rooms.filter(r =>
+          !occupiedSet.has(`${r.id}-${day.key}-${ts.id}`)
+        );
+        return { day, vacantRooms };
+      }).filter(row => row.vacantRooms.length > 0);
+
+      const totalVacant = dayRows.reduce((s, r) => s + r.vacantRooms.length, 0);
+
+      return { ts, palette, timeStr, dayRows, totalVacant };
+    });
+
+    const hasAny = tsGroups.some(g => g.totalVacant > 0);
+
+    if (!hasAny) {
+      resultsEl.innerHTML = `
+        <div class="vq-result-empty">
+          <div style="font-size:2rem;margin-bottom:0.5rem;">🎉</div>
+          <strong>Không có phòng trống</strong>
+          <p>Tất cả phòng đều đã có lịch trong các ca bạn chọn.</p>
+        </div>`;
+      return;
+    }
+
+    resultsEl.innerHTML = tsGroups.map(({ ts, palette, timeStr, dayRows, totalVacant }) => {
+      if (totalVacant === 0) return ''; // ca này kín hết, bỏ qua
+
+      const dayRowsHtml = dayRows.map(({ day, vacantRooms }) => {
         const roomTags = vacantRooms.map(r => `
           <button class="vacant-room-tag"
             onclick="App.openAddSlot(${r.id}, ${day.key})"
-            title="Thêm lịch: ${escHtml(r.name)} / ${escHtml(ts.name)}">
+            title="Thêm lịch: ${escHtml(r.name)} — ${escHtml(ts.name)} — ${day.label}">
             <span>🚪 ${escHtml(r.name)}</span>
             <span class="vacant-tag-plus">+</span>
           </button>`).join('');
 
         return `
-          <div class="vacant-ts-row">
-            <div class="vacant-ts-label" style="background:${palette.bg};border-left:3px solid ${palette.border};">
-              <span class="vacant-ts-name">${escHtml(ts.name)}</span>
-              <span class="vacant-ts-time">${timeStr}</span>
-              <span class="vacant-ts-count">${vacantRooms.length} phòng</span>
-            </div>
+          <div class="vq-day-row">
+            <div class="vq-day-badge">${day.label}</div>
             <div class="vacant-rooms">${roomTags}</div>
           </div>`;
       }).join('');
 
       return `
-        <div class="vacant-day-block">
-          <div class="vacant-day-header">
-            <span class="vacant-day-label">${day.label}</span>
-            <span class="vacant-day-count">${dayVacantCount} ca trống</span>
+        <div class="vq-result-group">
+          <div class="vq-result-header"
+            style="background:${palette.bg};border-left:4px solid ${palette.border};">
+            <div class="vq-result-ts-info">
+              <span class="vq-result-ts-name">${escHtml(ts.name)}</span>
+              <span class="vq-result-ts-time">${timeStr}</span>
+            </div>
+            <span class="vq-result-count">${totalVacant} chỗ trống</span>
           </div>
-          <div class="vacant-groups">${groupsHtml}</div>
+          <div class="vq-result-body">${dayRowsHtml}</div>
         </div>`;
     }).join('');
-
-    content.innerHTML = summaryHtml + blocksHtml;
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -1455,5 +1492,7 @@ const App = (() => {
     openAddAssignment, submitAddAssignment, toggleAllDays,
     // Sao chép ngày
     openCopyDayModal, updateCopyPreview, executeCopyDay,
+    // Phòng trống
+    vacantToggleAll, searchVacant,
   };
 })();
